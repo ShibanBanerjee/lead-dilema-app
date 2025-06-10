@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Vertical Lead's Challenge</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .progress-bar-bg {
+            background-color: #e0e0e0;
+            border-radius: 9999px;
+            overflow: hidden;
+        }
+        .progress-bar {
+            height: 100%;
+            border-radius: 9999px;
+            transition: width 0.5s ease-in-out, background-color 0.5s ease-in-out;
+        }
+        .action-button {
+            transition: all 0.2s ease-in-out;
+        }
+        .action-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        .modal {
+            transition: opacity 0.3s ease-in-out;
+        }
+        .modal-content {
+            transition: transform 0.3s ease-in-out;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 flex items-center justify-center min-h-screen p-4">
+    <div class="w-full max-w-5xl mx-auto">
+        <header class="text-center mb-6">
+            <h1 class="text-3xl md:text-4xl font-bold text-slate-900">The Vertical Lead's Challenge</h1>
+            <p class="text-slate-600 mt-2">Grow your business vertical from 5 to 25 accounts in 18 months.</p>
+            <div class="mt-4">
+                <button id="rules-button" class="bg-indigo-100 text-indigo-700 font-semibold py-2 px-4 rounded-lg hover:bg-indigo-200 transition-colors">
+                    Rules of the Game
+                </button>
+            </div>
+        </header>
+
+        <main id="game-container" class="bg-white rounded-xl shadow-lg p-6 md:p-8">
+            <!-- Dashboard -->
+            <div id="dashboard" class="grid grid-cols-2 lg:grid-cols-6 gap-4 mb-6 text-center">
+                <div class="bg-slate-100 p-4 rounded-lg">
+                    <h3 class="text-sm font-medium text-slate-500">Month</h3>
+                    <p id="month-value" class="text-2xl font-bold text-indigo-600">1 / 18</p>
+                </div>
+                 <div class="bg-slate-100 p-4 rounded-lg">
+                    <h3 class="text-sm font-medium text-slate-500">Team Members</h3>
+                    <p id="team-size-value" class="text-2xl font-bold text-indigo-600">1</p>
+                </div>
+                <div class="bg-slate-100 p-4 rounded-lg">
+                    <h3 class="text-sm font-medium text-slate-500">Accounts</h3>
+                    <p id="accounts-value" class="text-2xl font-bold text-indigo-600">5</p>
+                </div>
+                 <div class="bg-slate-100 p-4 rounded-lg">
+                    <h3 class="text-sm font-medium text-slate-500">Revenue</h3>
+                    <p id="revenue-value" class="text-2xl font-bold text-green-600">₹0</p>
+                </div>
+                <div class="bg-slate-100 p-4 rounded-lg">
+                    <h3 class="text-sm font-medium text-slate-500">Monthly Profit</h3>
+                    <p id="profit-value" class="text-2xl font-bold text-indigo-600">₹0</p>
+                </div>
+                <div class="bg-slate-100 p-4 rounded-lg">
+                    <h3 class="text-sm font-medium text-slate-500">Clients Lost</h3>
+                    <p id="clients-lost-value" class="text-2xl font-bold text-red-500">0</p>
+                </div>
+            </div>
+            
+            <!-- Gauges -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                 <div class="bg-slate-100 p-4 rounded-lg">
+                    <div class="flex justify-between items-center mb-1">
+                        <h3 class="text-sm font-medium text-slate-500">Team Morale</h3>
+                        <span id="morale-percentage" class="text-sm font-semibold">100%</span>
+                    </div>
+                    <div class="progress-bar-bg h-4 w-full">
+                        <div id="morale-bar" class="progress-bar"></div>
+                    </div>
+                </div>
+                 <div class="bg-slate-100 p-4 rounded-lg">
+                    <div class="flex justify-between items-center mb-1">
+                        <h3 class="text-sm font-medium text-slate-500">Content Quality</h3>
+                         <span id="quality-percentage" class="text-sm font-semibold">Excellent</span>
+                    </div>
+                    <div class="progress-bar-bg h-4 w-full">
+                        <div id="quality-bar" class="progress-bar"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Message Log -->
+            <div id="message-log" class="bg-indigo-50 border-l-4 border-indigo-500 text-indigo-800 p-4 rounded-r-lg mb-6 min-h-[100px]">
+                <p id="message-text" class="font-medium"></p>
+            </div>
+
+            <!-- Actions -->
+            <div id="actions-container" class="text-center">
+                 <h2 class="text-lg font-semibold mb-4 text-slate-700">What is your strategic move?</h2>
+                 <div id="actions-grid" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <!-- Action buttons will be dynamically inserted here -->
+                 </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Rules Modal -->
+    <div id="rules-modal" class="modal fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 hidden z-50">
+        <div class="modal-content bg-white rounded-xl shadow-2xl p-8 max-w-lg w-full relative">
+            <button id="close-rules-button" class="absolute top-2 right-4 text-slate-500 hover:text-slate-800 text-3xl font-bold">&times;</button>
+            <h2 class="text-2xl font-bold mb-4 text-slate-900 text-center">Rules of the Game</h2>
+            <div id="rules-content" class="text-left text-slate-700 space-y-4 max-h-[80vh] overflow-y-auto pr-4">
+                <div>
+                    <h3 class="font-bold text-lg text-indigo-600">The Goal</h3>
+                    <p>Grow from 5 to <strong>25 accounts</strong> within 18 months without morale hitting zero or losing all your clients.</p>
+                </div>
+                <div>
+                    <h3 class="font-bold text-lg text-indigo-600">Key Metrics & Morale</h3>
+                    <ul class="list-disc list-inside space-y-1">
+                        <li><strong>Morale:</strong> This is your team's happiness. It increases with low workload and high profits. It decreases from overwork, losing clients, and financial losses. Investing in tools or managers also gives a boost!</li>
+                        <li><strong>Quality:</strong> This drops when workload is high. Low quality leads to losing clients.</li>
+                    </ul>
+                </div>
+                <div>
+                    <h3 class="font-bold text-lg text-indigo-600">Action → Result Combos</h3>
+                     <ul class="list-disc list-inside space-y-2">
+                        <li><strong>Accept Clients:</strong> Good for growth, but increases workload.</li>
+                        <li><strong>Focus on Quality:</strong> Sacrifices quantity for quality. Gain a <strong>+20% quality boost</strong>, but reduce capacity by <strong>-1 account per person</strong>.</li>
+                         <li><strong>Hire Staff:</strong> Increases capacity and costs. New hires are <strong>50% effective</strong> for their first month.</li>
+                        <li><strong>Buy/Build Tools:</strong> Increases efficiency (capacity) and gives a morale boost, but costs money.</li>
+                    </ul>
+                </div>
+                 <div class="border-t pt-4 mt-4">
+                    <p class="italic">An <strong class="text-red-600">Individual Contributor</strong> asks: "How do I do my task well?"</p>
+                    <p class="italic">A <strong class="text-green-600">Lead</strong> asks: "How do I build a system that can do many tasks well?"</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Over Modal -->
+    <div id="game-modal" class="modal fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 hidden z-50">
+        <div class="modal-content bg-white rounded-xl shadow-2xl p-8 text-center max-w-md w-full">
+            <h2 id="modal-title" class="text-3xl font-bold mb-4"></h2>
+            <p id="modal-body" class="text-slate-600 mb-6"></p>
+            <div id="moral-display" class="border-t pt-4 mt-4 hidden">
+                 <p class="italic text-slate-700">An <strong class="text-red-600">Individual Contributor</strong> asks: "How do I do my task well?"</p>
+                 <p class="italic text-slate-700">A <strong class="text-green-600">Lead</strong> asks: "How do I build a system that can do many tasks well?"</p>
+            </div>
+            <button id="restart-button" class="mt-6 bg-indigo-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-indigo-700 transition-colors">Play Again</button>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+
+            // --- DOM ELEMENTS ---
+            const UIElements = {
+                month: document.getElementById('month-value'),
+                teamSize: document.getElementById('team-size-value'),
+                accounts: document.getElementById('accounts-value'),
+                revenue: document.getElementById('revenue-value'),
+                profit: document.getElementById('profit-value'),
+                clientsLost: document.getElementById('clients-lost-value'),
+                moraleBar: document.getElementById('morale-bar'),
+                moralePercentage: document.getElementById('morale-percentage'),
+                qualityBar: document.getElementById('quality-bar'),
+                qualityPercentage: document.getElementById('quality-percentage'),
+                messageText: document.getElementById('message-text'),
+                actionsGrid: document.getElementById('actions-grid'),
+                gameModal: document.getElementById('game-modal'),
+                modalTitle: document.getElementById('modal-title'),
+                modalBody: document.getElementById('modal-body'),
+                moralDisplay: document.getElementById('moral-display'),
+                restartButton: document.getElementById('restart-button'),
+                rulesButton: document.getElementById('rules-button'),
+                rulesModal: document.getElementById('rules-modal'),
+                closeRulesButton: document.getElementById('close-rules-button')
+            };
+
+            // --- GAME CONFIGURATION ---
+            const CONFIG = {
+                maxMonths: 18,
+                targetAccounts: 25,
+                revenuePerAccount: 30000,
+                baseClientLossChance: 0.05,
+                moraleRecoveryRate: 5,
+                moraleDropRate: 15,
+                baseCapacityPerPerson: 5,
+                processImprovementBonus: 3,
+                morale: {
+                    highProfitThreshold: 100000,
+                    profitBonus: 3,
+                    lossPenalty: 2,
+                    clientLossPenalty: 5,
+                    investmentBonus: 10
+                }
+            };
+
+            // --- STRATEGIC OPTIONS ---
+            const HIRES = {
+                junior: { name: 'Junior Writer', salary: 25000, skill: 5, onboardMonths: 1, capacity: CONFIG.baseCapacityPerPerson },
+                manager: { name: 'Account Manager', salary: 35000, skill: 7, onboardMonths: 1, capacity: 3, qualityBonus: 0.1 }
+            };
+
+            const TOOLS = {
+                scheduler: { id: 'scheduler', name: 'Content Scheduler', costPerAccount: 500, qualityBonus: 1.05, type: 'scaling' },
+                buy_tools: { id: 'buy_tools', name: 'Bought Tool Suite', cost: 20000, type: 'fixed', processImprovements: 1 },
+                build_tools: { id: 'build_tools', name: 'In-house Tools', initialCost: 40000, maintenanceCost: 5000, type: 'custom', processImprovements: 2 }
+            };
+            
+            // --- GAME STATE ---
+            let gameState;
+
+            function getInitialGameState() {
+                return {
+                    month: 0,
+                    accounts: 5,
+                    clientsLost: 0,
+                    baseOperationalCost: 50000,
+                    team: [{ name: 'Founder (You)', salary: 0, skill: 8, onboardMonthsLeft: 0, capacity: CONFIG.baseCapacityPerPerson }],
+                    tools: [],
+                    teamMorale: 100, 
+                    isGameOver: false,
+                    log: [],
+                    processImprovements: 0,
+                    qualityInvestment: 0,
+                    isBuildingTool: false,
+                };
+            }
+            
+            function initGame() {
+                gameState = getInitialGameState();
+                UIElements.gameModal.classList.add('hidden');
+                UIElements.gameModal.style.opacity = 0;
+                startMonth();
+            }
+
+            function startMonth() {
+                if (gameState.isGameOver) return;
+                
+                gameState.month++;
+                
+                // Handle second month of building a tool
+                if (gameState.isBuildingTool) {
+                    const tool = TOOLS.build_tools;
+                    gameState.tools.push(tool.id);
+                    gameState.processImprovements += tool.processImprovements;
+                    gameState.teamMorale += CONFIG.morale.investmentBonus;
+                    addToLog(`Construction of ${tool.name} is complete! Morale increased.`, 'success');
+                    gameState.isBuildingTool = false; 
+                }
+
+                updateOnboardingStatus();
+                const metrics = calculateMetrics();
+                handleClientChurn(metrics);
+                updateMorale(metrics);
+                
+                updateDashboard(metrics);
+                
+                if (checkEndConditions()) return;
+
+                generateMonthlyEvent();
+            }
+
+            function updateOnboardingStatus() {
+                gameState.team.forEach(member => {
+                    if (member.onboardMonthsLeft > 0) {
+                        member.onboardMonthsLeft--;
+                        if (member.onboardMonthsLeft === 0) {
+                            addToLog(`${member.name} has finished onboarding and is now fully productive!`, 'success');
+                            // Add morale boost for hiring a manager
+                            if (member.name === HIRES.manager.name) {
+                                gameState.teamMorale += CONFIG.morale.investmentBonus;
+                                addToLog(`Hiring an Account Manager boosted team morale!`, 'success');
+                            }
+                        }
+                    }
+                });
+            }
+
+            function calculateMetrics() {
+                const capacityPerPerson = CONFIG.baseCapacityPerPerson + (gameState.processImprovements * CONFIG.processImprovementBonus) - gameState.qualityInvestment;
+                let totalCapacity = 0;
+                gameState.team.forEach(member => {
+                    const individualCapacity = member.capacity === CONFIG.baseCapacityPerPerson ? capacityPerPerson : member.capacity;
+                    const efficiency = (member.onboardMonthsLeft > 0) ? 0.5 : 1.0;
+                    totalCapacity += individualCapacity * efficiency;
+                });
+
+                const workload = totalCapacity > 0 ? gameState.accounts / totalCapacity : 5;
+
+                const teamQualityBonus = gameState.team.reduce((total, member) => total + ((member.qualityBonus && member.onboardMonthsLeft === 0) ? member.qualityBonus : 0), 1);
+                const averageSkill = gameState.team.reduce((sum, member) => sum + member.skill, 0) / (gameState.team.length || 1);
+                
+                let quality;
+                if (workload > 1.0) {
+                    const penaltyFactor = 50 / (averageSkill || 8); 
+                    quality = 80 - ((workload - 1.0) * penaltyFactor);
+                } else if (workload > 0.999) {
+                    quality = 80;
+                } else {
+                    quality = 100;
+                }
+                
+                quality += gameState.qualityInvestment * 20;
+                quality *= teamQualityBonus;
+                quality = Math.max(0, Math.min(100, quality));
+
+                const staffCosts = gameState.team.reduce((sum, m) => sum + m.salary, 0);
+                let toolCosts = 0;
+                gameState.tools.forEach(toolId => {
+                    if (toolId === 'scheduler') toolCosts += TOOLS.scheduler.costPerAccount * gameState.accounts;
+                    if (toolId === 'buy_tools') toolCosts += TOOLS.buy_tools.cost;
+                    if (toolId === 'build_tools') toolCosts += TOOLS.build_tools.maintenanceCost;
+                });
+                const monthlyCosts = gameState.baseOperationalCost + staffCosts + toolCosts;
+                
+                const revenue = gameState.accounts * CONFIG.revenuePerAccount;
+                const profit = revenue - monthlyCosts;
+
+                return { workload, quality, profit, revenue, monthlyCosts, totalCapacity, capacityPerPerson };
+            }
+            
+            /**
+             * NEW: More dynamic morale calculation
+             */
+            function updateMorale(metrics) {
+                 // From workload
+                 if (metrics.workload > 1.2) {
+                    gameState.teamMorale -= CONFIG.moraleDropRate * (metrics.workload - 1.1);
+                    addToLog(`The team is overworked! Morale is dropping.`);
+                } else if (metrics.workload < 0.9) {
+                    gameState.teamMorale += CONFIG.moraleRecoveryRate;
+                }
+                
+                // From profit/loss
+                if (metrics.profit >= CONFIG.morale.highProfitThreshold) {
+                    gameState.teamMorale += CONFIG.morale.profitBonus;
+                    addToLog(`Excellent profits are boosting morale!`, 'success');
+                } else if (metrics.profit < 0) {
+                    gameState.teamMorale -= CONFIG.morale.lossPenalty;
+                    addToLog(`Financial losses are hurting morale.`, 'error');
+                }
+
+                gameState.teamMorale = Math.max(0, Math.min(100, gameState.teamMorale));
+            }
+
+            function handleClientChurn(metrics) {
+                const managerBonus = gameState.team.some(m => m.name === HIRES.manager.name && m.onboardMonthsLeft === 0) ? 0.5 : 1;
+                const churnChance = (CONFIG.baseClientLossChance + (100 - metrics.quality) / 200) * managerBonus;
+                if (Math.random() < churnChance && gameState.accounts > 1) {
+                    const clientsLost = Math.random() < 0.3 ? 2 : 1;
+                    gameState.accounts = Math.max(0, gameState.accounts - clientsLost);
+                    gameState.clientsLost += clientsLost;
+                    // Morale penalty for losing clients
+                    gameState.teamMorale -= CONFIG.morale.clientLossPenalty * clientsLost;
+                    addToLog(`Poor service quality! You lost ${clientsLost} client(s). Morale took a hit.`, 'error');
+                }
+            }
+            
+            function checkEndConditions() {
+                if (gameState.accounts >= CONFIG.targetAccounts) endGame(true);
+                else if (gameState.month >= CONFIG.maxMonths) endGame(false, "You ran out of time! The board is looking for more decisive leadership.");
+                else if (gameState.teamMorale <= 0) endGame(false, "Team morale hit zero! Everyone quit, and the vertical collapsed.");
+                else if (gameState.accounts <= 0) endGame(false, "You lost all your clients! The business vertical has been shut down.");
+                else return false;
+                return true;
+            }
+
+            function generateMonthlyEvent() {
+                const newClients = Math.floor(Math.random() * 3) + 2;
+                const { capacityPerPerson } = calculateMetrics();
+                addToLog(`A new opportunity! You can sign ${newClients} new clients. Each writer can currently handle ${capacityPerPerson.toFixed(1)} accounts.`);
+                
+                UIElements.actionsGrid.innerHTML = '';
+                
+                createActionButton(`Accept ${newClients} Clients`, "The core of growth. Let's take them on.", 'bg-green-500 hover:bg-green-600', () => {
+                    gameState.accounts += newClients;
+                    addToLog(`You signed ${newClients} new accounts. Time to deliver!`, 'success');
+                    setTimeout(startMonth, 1000);
+                });
+
+                createActionButton("Focus on Quality", "Boosts quality by 20%, reduces capacity by 1.", 'bg-blue-500 hover:bg-blue-600', () => {
+                    gameState.qualityInvestment++;
+                    const { capacityPerPerson } = calculateMetrics();
+                    addToLog(`New quality standards set! This improves output but reduces capacity to ${capacityPerPerson.toFixed(1)} accounts per person.`);
+                    setTimeout(startMonth, 1000);
+                });
+                
+                createActionButton("Make Strategic Investment", "Pull the levers of Capability or Process.", 'bg-indigo-500 hover:bg-indigo-600', showStrategicDecisions);
+            }
+
+            function showStrategicDecisions() {
+                UIElements.actionsGrid.innerHTML = '';
+                addToLog("Choose an investment. This will consume your turn this month.");
+
+                Object.values(HIRES).forEach(hire => {
+                    createActionButton(`Hire ${hire.name}`, `Cost: ${formatCurrency(hire.salary)}/mo`, 'bg-sky-500 hover:bg-sky-600', () => {
+                        const newHire = {...hire, onboardMonthsLeft: hire.onboardMonths };
+                        delete newHire.onboardMonths;
+                        gameState.team.push(newHire);
+                        addToLog(`Hiring process started for a ${hire.name}. Onboarding will take ${hire.onboardMonths} month.`, 'success');
+                        setTimeout(startMonth, 1000);
+                    });
+                });
+
+                createActionButton(`Buy Content Scheduler`, `Cost: ${formatCurrency(TOOLS.scheduler.costPerAccount)}/account/mo`, 'bg-purple-500 hover:bg-purple-600', () => {
+                    gameState.tools.push(TOOLS.scheduler.id);
+                    gameState.teamMorale += CONFIG.morale.investmentBonus / 2;
+                    addToLog(`${TOOLS.scheduler.name} purchased. A small morale boost!`, 'success');
+                    setTimeout(startMonth, 1000);
+                }, gameState.tools.includes(TOOLS.scheduler.id));
+
+                createActionButton(`Buy Tool Suite`, `Cost: ${formatCurrency(TOOLS.buy_tools.cost)}/mo`, 'bg-purple-500 hover:bg-purple-600', () => {
+                    gameState.tools.push(TOOLS.buy_tools.id);
+                    gameState.processImprovements += TOOLS.buy_tools.processImprovements;
+                    gameState.teamMorale += CONFIG.morale.investmentBonus;
+                    const { capacityPerPerson } = calculateMetrics();
+                    addToLog(`${TOOLS.buy_tools.name} purchased. Capacity and morale increased!`, 'success');
+                    setTimeout(startMonth, 1000);
+                }, gameState.tools.includes(TOOLS.buy_tools.id));
+                
+                createActionButton(`Build In-house Tools`, `Cost: ${formatCurrency(TOOLS.build_tools.initialCost)} now, then ${formatCurrency(TOOLS.build_tools.maintenanceCost)}/mo`, 'bg-purple-700 hover:bg-purple-800', () => {
+                    gameState.isBuildingTool = true;
+                    gameState.baseOperationalCost += TOOLS.build_tools.initialCost;
+                    addToLog(`Began building ${TOOLS.build_tools.name}. It will be ready next month.`, 'success');
+                    setTimeout(startMonth, 1000);
+                }, gameState.tools.includes(TOOLS.build_tools.id) || gameState.isBuildingTool);
+                
+                createActionButton("Back to Main Actions", "Reconsider your options.", 'bg-slate-500 hover:bg-slate-600', generateMonthlyEvent);
+            }
+
+
+            // --- UI & HELPER FUNCTIONS ---
+            function formatCurrency(value) {
+                return value.toLocaleString('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 0 });
+            }
+
+            function updateDashboard(metrics) {
+                UIElements.month.textContent = `${gameState.month} / ${CONFIG.maxMonths}`;
+                UIElements.teamSize.textContent = gameState.team.length;
+                UIElements.accounts.textContent = gameState.accounts;
+                UIElements.clientsLost.textContent = gameState.clientsLost;
+                UIElements.revenue.textContent = formatCurrency(metrics.revenue);
+
+                const profitEl = UIElements.profit;
+                profitEl.textContent = formatCurrency(metrics.profit);
+                profitEl.className = `text-2xl font-bold ${metrics.profit >= 0 ? 'text-green-600' : 'text-red-600'}`;
+                
+                UIElements.moraleBar.style.width = `${gameState.teamMorale}%`;
+                UIElements.moraleBar.className = `progress-bar ${getBarColor(gameState.teamMorale)}`;
+                UIElements.moralePercentage.textContent = `${Math.round(gameState.teamMorale)}%`;
+
+                UIElements.qualityBar.style.width = `${metrics.quality}%`;
+                UIElements.qualityBar.className = `progress-bar ${getBarColor(metrics.quality)}`;
+                UIElements.qualityPercentage.textContent = getQualityLabel(metrics.quality);
+            }
+            
+            function getQualityLabel(quality) {
+                if (quality >= 99) return 'Excellent'; if (quality > 80) return 'Very Good';
+                if (quality > 70) return 'Good'; if (quality > 50) return 'Average';
+                if (quality > 30) return 'Poor'; return 'Critical';
+            }
+
+            function getBarColor(value) {
+                if (value > 75) return 'bg-green-500'; if (value > 50) return 'bg-yellow-400';
+                if (value > 25) return 'bg-orange-500'; return 'bg-red-600';
+            }
+            
+            function createActionButton(title, subtitle, colorClass, onClick, disabled = false) {
+                const buttonContainer = document.createElement('div');
+                buttonContainer.className = `action-button p-4 rounded-lg text-white text-left cursor-pointer ${colorClass} ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`;
+                buttonContainer.innerHTML = `<h3 class="font-bold text-md">${title}</h3><p class="text-sm opacity-90 mt-1">${subtitle}</p>`;
+                if (!disabled) {
+                    buttonContainer.addEventListener('click', () => {
+                        UIElements.actionsGrid.innerHTML = `<div class="text-center text-slate-500 col-span-3 py-4">Processing turn...</div>`;
+                        onClick();
+                    });
+                }
+                UIElements.actionsGrid.appendChild(buttonContainer);
+            }
+            
+            function addToLog(message, type = 'info') {
+                UIElements.messageText.textContent = message;
+                const logEl = UIElements.messageText.parentElement;
+                logEl.className = 'p-4 rounded-r-lg mb-6 min-h-[100px] border-l-4 ';
+                if (type === 'error') logEl.classList.add('border-red-500', 'bg-red-50', 'text-red-800');
+                else if (type === 'success') logEl.classList.add('border-green-500', 'bg-green-50', 'text-green-800');
+                else logEl.classList.add('border-indigo-500', 'bg-indigo-50', 'text-indigo-800');
+            }
+            
+            function endGame(isWin, message = '') {
+                gameState.isGameOver = true;
+                UIElements.modalBody.textContent = message;
+
+                if (isWin) {
+                    UIElements.modalTitle.textContent = "Congratulations!";
+                    UIElements.modalTitle.className = 'text-3xl font-bold mb-4 text-green-600';
+                    UIElements.moralDisplay.classList.remove('hidden');
+                } else {
+                    UIElements.modalTitle.textContent = "Challenge Failed";
+                    UIElements.modalTitle.className = 'text-3xl font-bold mb-4 text-red-600';
+                    UIElements.moralDisplay.classList.add('hidden');
+                }
+                openModal(UIElements.gameModal);
+            }
+
+            // --- EVENT LISTENERS ---
+            UIElements.restartButton.addEventListener('click', initGame);
+
+            // Modal handling
+            const openModal = (modal) => {
+                modal.classList.remove('hidden');
+                setTimeout(() => modal.style.opacity = 1, 10);
+            }
+            const closeModal = (modal) => {
+                modal.style.opacity = 0;
+                setTimeout(() => modal.classList.add('hidden'), 300);
+            }
+
+            UIElements.rulesButton.addEventListener('click', () => openModal(UIElements.rulesModal));
+            UIElements.closeRulesButton.addEventListener('click', () => closeModal(UIElements.rulesModal));
+            UIElements.rulesModal.addEventListener('click', (e) => {
+                if(e.target === UIElements.rulesModal) closeModal(UIElements.rulesModal);
+            });
+
+
+            // --- START THE GAME ---
+            initGame();
+        });
+    </script>
+</body>
+</html>
