@@ -129,7 +129,7 @@
                 <div>
                     <h3 class="font-bold text-lg text-indigo-600">Key Metrics</h3>
                     <ul class="list-disc list-inside space-y-2">
-                        <li><strong>Morale:</strong> Severely overworking your team causes a sharp morale drop. Morale also falls from financial losses and losing clients, but rises when the team has a light workload or when you invest in them.</li>
+                        <li><strong>Morale:</strong> If the team isn't overworked, morale recovers. Overworking them causes morale to drop. It also falls from financial losses and losing clients, but rises with profits and when you invest in the team.</li>
                         <li><strong>Quality:</strong> Overworking your team hurts quality. Unhappy teams also produce worse work. If quality gets too low, you will start losing clients every month.</li>
                     </ul>
                 </div>
@@ -138,7 +138,7 @@
                      <ul class="list-disc list-inside space-y-2">
                         <li><strong>Accept Clients:</strong> Good for growth, but increases workload.</li>
                         <li><strong>Focus on Quality:</strong> Sacrifices quantity for quality. You get a significant quality boost, but each team member can handle one less account.</li>
-                         <li><strong>Hire Staff:</strong> Increases your team's workload capacity, but costs money. New hires are not fully effective for their first month.</li>
+                         <li><strong>Hire Staff:</strong> Increases your team's workload capacity, but costs money. New hires give a morale boost when they finish onboarding.</li>
                         <li><strong>Buy/Build Tools:</strong> Increases team efficiency (capacity) and gives a morale boost, but has costs.</li>
                     </ul>
                 </div>
@@ -196,7 +196,7 @@
                 maxMonths: 18,
                 targetAccounts: 25,
                 revenuePerAccount: 30000,
-                moraleRecoveryRate: 5,
+                moraleRecoveryRate: 10, // Increased for faster recovery
                 baseCapacityPerPerson: 5,
                 processImprovementBonus: 3,
                 morale: {
@@ -354,10 +354,12 @@
                     if (member.onboardMonthsLeft > 0) {
                         member.onboardMonthsLeft--;
                         if (member.onboardMonthsLeft === 0) {
-                            addToLog(`${member.name} has finished onboarding and is now fully productive!`, 'success');
-                            if (member.name === HIRES.manager.name) {
+                            // UPDATED: Morale boost for any new hire.
+                            if (member.name === HIRES.manager.name || member.name === HIRES.junior.name) {
                                 gameState.teamMorale += CONFIG.morale.investmentBonus;
-                                addToLog(`Hiring an Account Manager boosted team morale!`, 'success');
+                                addToLog(`A new ${member.name} finished onboarding, boosting team morale!`, 'success');
+                            } else {
+                                addToLog(`${member.name} has finished onboarding and is now fully productive!`, 'success');
                             }
                         }
                     }
@@ -373,9 +375,8 @@
                     totalCapacity += individualCapacity * efficiency;
                 });
 
-                const workload = totalCapacity > 0 ? gameState.accounts / totalCapacity : 5;
+                const workload = totalCapacity > 0 ? gameState.accounts / totalCapacity : 1;
                 let quality = 100;
-                // UPDATED: Quality penalty halved
                 if (workload > 1.0) { quality -= ((workload - 1.0) * 100) / 2; }
                 quality += gameState.qualityInvestment * 20;
                 quality *= (gameState.teamMorale / 100);
@@ -396,13 +397,13 @@
             }
 
             function updateMorale(metrics) {
-                // UPDATED: Morale penalty halved
-                 if (metrics.workload > 1.2) {
-                    let moraleDrop = 10; // Halved from 20
-                    moraleDrop += ((metrics.workload - 1.2) * 100) / 2; // Halved
+                // UPDATED: New morale logic based on workload.
+                 if (metrics.workload > 1.0) {
+                    const moraleDrop = (metrics.workload - 1.0) * 25; // e.g., 120% workload = 5 point drop.
                     gameState.teamMorale -= moraleDrop;
                     addToLog(`The team is overworked! Morale is dropping.`);
-                } else if (metrics.workload < 0.9) {
+                } else {
+                    // If workload is not > 100%, it recovers.
                     gameState.teamMorale += CONFIG.moraleRecoveryRate;
                 }
                 
