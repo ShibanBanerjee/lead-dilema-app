@@ -124,10 +124,10 @@
                     <p>Grow from 5 to <strong>25 accounts</strong> within 18 months without morale hitting zero or losing all your clients.</p>
                 </div>
                 <div>
-                    <h3 class="font-bold text-lg text-indigo-600">Key Metrics & Morale</h3>
-                    <ul class="list-disc list-inside space-y-1">
-                        <li><strong>Morale:</strong> This is your team's happiness. It increases with low workload and high profits. It decreases from overwork, losing clients, and financial losses. Investing in tools or managers also gives a boost!</li>
-                        <li><strong>Quality:</strong> This drops when workload is high. Low quality leads to losing clients.</li>
+                    <h3 class="font-bold text-lg text-indigo-600">Key Metrics</h3>
+                    <ul class="list-disc list-inside space-y-2">
+                        <li><strong>Morale:</strong> Unhappy teams produce worse work. Your quality is capped by morale. Low morale also hurts from overwork, losses, and losing clients.</li>
+                        <li><strong>Quality:</strong> For every 1% your team is overworked, quality drops by 1%. If quality drops below 70%, you start losing clients every month!</li>
                     </ul>
                 </div>
                 <div>
@@ -250,7 +250,6 @@
                 
                 gameState.month++;
                 
-                // Handle second month of building a tool
                 if (gameState.isBuildingTool) {
                     const tool = TOOLS.build_tools;
                     gameState.tools.push(tool.id);
@@ -262,7 +261,7 @@
 
                 updateOnboardingStatus();
                 const metrics = calculateMetrics();
-                handleClientChurn(metrics);
+                handleClientChurn(metrics.quality); // Now passes quality
                 updateMorale(metrics);
                 
                 updateDashboard(metrics);
@@ -278,7 +277,6 @@
                         member.onboardMonthsLeft--;
                         if (member.onboardMonthsLeft === 0) {
                             addToLog(`${member.name} has finished onboarding and is now fully productive!`, 'success');
-                            // Add morale boost for hiring a manager
                             if (member.name === HIRES.manager.name) {
                                 gameState.teamMorale += CONFIG.morale.investmentBonus;
                                 addToLog(`Hiring an Account Manager boosted team morale!`, 'success');
@@ -288,6 +286,9 @@
                 });
             }
 
+            /**
+             * UPDATED: Calculates key metrics with new quality rules.
+             */
             function calculateMetrics() {
                 const capacityPerPerson = CONFIG.baseCapacityPerPerson + (gameState.processImprovements * CONFIG.processImprovementBonus) - gameState.qualityInvestment;
                 let totalCapacity = 0;
@@ -299,23 +300,24 @@
 
                 const workload = totalCapacity > 0 ? gameState.accounts / totalCapacity : 5;
 
-                const teamQualityBonus = gameState.team.reduce((total, member) => total + ((member.qualityBonus && member.onboardMonthsLeft === 0) ? member.qualityBonus : 0), 1);
-                const averageSkill = gameState.team.reduce((sum, member) => sum + member.skill, 0) / (gameState.team.length || 1);
+                // --- QUALITY CALCULATION (UPDATED) ---
+                let quality = 100; // Start with a base of 100
                 
-                let quality;
+                // Penalty from overwork (1-to-1)
                 if (workload > 1.0) {
-                    const penaltyFactor = 50 / (averageSkill || 8); 
-                    quality = 80 - ((workload - 1.0) * penaltyFactor);
-                } else if (workload > 0.999) {
-                    quality = 80;
-                } else {
-                    quality = 100;
+                    quality -= (workload - 1.0) * 100;
                 }
                 
+                // Bonus from quality focus
                 quality += gameState.qualityInvestment * 20;
-                quality *= teamQualityBonus;
-                quality = Math.max(0, Math.min(100, quality));
 
+                // Penalty from low morale
+                const moralePenalty = (100 - gameState.teamMorale) / 2; // e.g., 50 morale = 25 point quality penalty
+                quality -= moralePenalty;
+                
+                quality = Math.max(0, Math.min(100, quality)); // Cap quality between 0 and 100
+
+                // --- COST CALCULATION ---
                 const staffCosts = gameState.team.reduce((sum, m) => sum + m.salary, 0);
                 let toolCosts = 0;
                 gameState.tools.forEach(toolId => {
@@ -331,11 +333,7 @@
                 return { workload, quality, profit, revenue, monthlyCosts, totalCapacity, capacityPerPerson };
             }
             
-            /**
-             * NEW: More dynamic morale calculation
-             */
             function updateMorale(metrics) {
-                 // From workload
                  if (metrics.workload > 1.2) {
                     gameState.teamMorale -= CONFIG.moraleDropRate * (metrics.workload - 1.1);
                     addToLog(`The team is overworked! Morale is dropping.`);
@@ -343,7 +341,6 @@
                     gameState.teamMorale += CONFIG.moraleRecoveryRate;
                 }
                 
-                // From profit/loss
                 if (metrics.profit >= CONFIG.morale.highProfitThreshold) {
                     gameState.teamMorale += CONFIG.morale.profitBonus;
                     addToLog(`Excellent profits are boosting morale!`, 'success');
@@ -355,16 +352,22 @@
                 gameState.teamMorale = Math.max(0, Math.min(100, gameState.teamMorale));
             }
 
-            function handleClientChurn(metrics) {
-                const managerBonus = gameState.team.some(m => m.name === HIRES.manager.name && m.onboardMonthsLeft === 0) ? 0.5 : 1;
-                const churnChance = (CONFIG.baseClientLossChance + (100 - metrics.quality) / 200) * managerBonus;
-                if (Math.random() < churnChance && gameState.accounts > 1) {
-                    const clientsLost = Math.random() < 0.3 ? 2 : 1;
-                    gameState.accounts = Math.max(0, gameState.accounts - clientsLost);
-                    gameState.clientsLost += clientsLost;
-                    // Morale penalty for losing clients
-                    gameState.teamMorale -= CONFIG.morale.clientLossPenalty * clientsLost;
-                    addToLog(`Poor service quality! You lost ${clientsLost} client(s). Morale took a hit.`, 'error');
+            /**
+             * UPDATED: Deterministic client churn based on quality.
+             */
+            function handleClientChurn(quality) {
+                let clientsToLose = 0;
+                if (quality < 70) {
+                    // Calculate how many 5% increments below 70 quality has fallen
+                    clientsToLose = Math.floor((70 - quality) / 5) + 1;
+                }
+
+                if (clientsToLose > 0 && gameState.accounts > 0) {
+                    const actualClientsLost = Math.min(gameState.accounts, clientsToLose); // Can't lose more clients than you have
+                    gameState.accounts -= actualClientsLost;
+                    gameState.clientsLost += actualClientsLost;
+                    gameState.teamMorale -= CONFIG.morale.clientLossPenalty * actualClientsLost;
+                    addToLog(`Critical quality failure! You lost ${actualClientsLost} client(s) this month.`, 'error');
                 }
             }
             
