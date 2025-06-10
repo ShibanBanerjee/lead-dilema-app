@@ -22,10 +22,12 @@
         }
         .action-button {
             transition: all 0.2s ease-in-out;
+            border: 2px solid transparent;
         }
-        .action-button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        .action-button.selected {
+             transform: translateY(-2px);
+             box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+             border-color: #4f46e5; /* Indigo-600 */
         }
         .modal {
             transition: opacity 0.3s ease-in-out;
@@ -105,10 +107,11 @@
 
             <!-- Actions -->
             <div id="actions-container" class="text-center">
-                 <h2 class="text-lg font-semibold mb-4 text-slate-700">What is your strategic move?</h2>
-                 <div id="actions-grid" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                 <h2 class="text-lg font-semibold mb-4 text-slate-700">Select up to two actions for this month:</h2>
+                 <div id="actions-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     <!-- Action buttons will be dynamically inserted here -->
                  </div>
+                 <div id="end-turn-container" class="mt-6"></div>
             </div>
         </main>
     </div>
@@ -121,22 +124,22 @@
             <div id="rules-content" class="text-left text-slate-700 space-y-4 max-h-[80vh] overflow-y-auto pr-4">
                 <div>
                     <h3 class="font-bold text-lg text-indigo-600">The Goal</h3>
-                    <p>Grow from 5 to <strong>25 accounts</strong> within 18 months without morale hitting zero or losing all your clients.</p>
+                    <p>Grow to <strong>25 accounts</strong> within 18 months without morale hitting zero or losing all your clients.</p>
                 </div>
                 <div>
                     <h3 class="font-bold text-lg text-indigo-600">Key Metrics</h3>
                     <ul class="list-disc list-inside space-y-2">
-                        <li><strong>Morale:</strong> Exceeding 120% workload causes a sharp morale drop. Morale also falls from losses and losing clients, but rises with low workload and investments.</li>
-                        <li><strong>Quality:</strong> For every 1% your team is overworked, quality drops by 1%. Unhappy teams also produce worse work. Quality below 70% causes client loss.</li>
+                        <li><strong>Morale:</strong> Severely overworking your team causes a sharp morale drop. Morale also falls from financial losses and losing clients, but rises when the team has a light workload or when you invest in them.</li>
+                        <li><strong>Quality:</strong> Overworking your team hurts quality. Unhappy teams also produce worse work. If quality gets too low, you will start losing clients every month.</li>
                     </ul>
                 </div>
                 <div>
-                    <h3 class="font-bold text-lg text-indigo-600">Action → Result Combos</h3>
+                    <h3 class="font-bold text-lg text-indigo-600">Your Actions</h3>
                      <ul class="list-disc list-inside space-y-2">
                         <li><strong>Accept Clients:</strong> Good for growth, but increases workload.</li>
-                        <li><strong>Focus on Quality:</strong> Sacrifices quantity for quality. Gain a <strong>+20% quality boost</strong>, but reduce capacity by <strong>-1 account per person</strong>.</li>
-                         <li><strong>Hire Staff:</strong> Increases capacity and costs. New hires are <strong>50% effective</strong> for their first month.</li>
-                        <li><strong>Buy/Build Tools:</strong> Increases efficiency (capacity) and gives a morale boost, but costs money.</li>
+                        <li><strong>Focus on Quality:</strong> Sacrifices quantity for quality. You get a significant quality boost, but each team member can handle one less account.</li>
+                         <li><strong>Hire Staff:</strong> Increases your team's workload capacity, but costs money. New hires are not fully effective for their first month.</li>
+                        <li><strong>Buy/Build Tools:</strong> Increases team efficiency (capacity) and gives a morale boost, but has costs.</li>
                     </ul>
                 </div>
                  <div class="border-t pt-4 mt-4">
@@ -177,6 +180,7 @@
                 qualityPercentage: document.getElementById('quality-percentage'),
                 messageText: document.getElementById('message-text'),
                 actionsGrid: document.getElementById('actions-grid'),
+                endTurnContainer: document.getElementById('end-turn-container'),
                 gameModal: document.getElementById('game-modal'),
                 modalTitle: document.getElementById('modal-title'),
                 modalBody: document.getElementById('modal-body'),
@@ -206,12 +210,12 @@
 
             // --- STRATEGIC OPTIONS ---
             const HIRES = {
-                junior: { name: 'Junior Writer', salary: 25000, skill: 5, onboardMonths: 1, capacity: CONFIG.baseCapacityPerPerson },
-                manager: { name: 'Account Manager', salary: 35000, skill: 7, onboardMonths: 1, capacity: 3, qualityBonus: 0.1 }
+                junior: { id: 'hire_junior', name: 'Junior Writer', salary: 25000, skill: 5, onboardMonths: 1, capacity: CONFIG.baseCapacityPerPerson },
+                manager: { id: 'hire_manager', name: 'Account Manager', salary: 35000, skill: 7, onboardMonths: 1, capacity: 3, qualityBonus: 0.1 }
             };
 
             const TOOLS = {
-                scheduler: { id: 'scheduler', name: 'Content Scheduler', costPerAccount: 500, qualityBonus: 1.05, type: 'scaling' },
+                scheduler: { id: 'buy_scheduler', name: 'Content Scheduler', costPerAccount: 500, qualityBonus: 1.05, type: 'scaling' },
                 buy_tools: { id: 'buy_tools', name: 'Bought Tool Suite', cost: 20000, type: 'fixed', processImprovements: 1 },
                 build_tools: { id: 'build_tools', name: 'In-house Tools', initialCost: 40000, maintenanceCost: 5000, type: 'custom', processImprovements: 2 }
             };
@@ -233,6 +237,8 @@
                     processImprovements: 0,
                     qualityInvestment: 0,
                     isBuildingTool: false,
+                    selectedActions: [], 
+                    potentialNewClients: 0
                 };
             }
             
@@ -240,35 +246,109 @@
                 gameState = getInitialGameState();
                 UIElements.gameModal.classList.add('hidden');
                 UIElements.gameModal.style.opacity = 0;
-                startMonth();
+                setupNewTurn();
             }
 
-            function startMonth() {
+            // --- CORE GAME LOOP ---
+
+            function setupNewTurn() {
                 if (gameState.isGameOver) return;
-                
                 gameState.month++;
-                
                 if (gameState.isBuildingTool) {
                     const tool = TOOLS.build_tools;
                     gameState.tools.push(tool.id);
                     gameState.processImprovements += tool.processImprovements;
                     gameState.teamMorale += CONFIG.morale.investmentBonus;
-                    addToLog(`Construction of ${tool.name} is complete! Morale increased.`, 'success');
-                    gameState.isBuildingTool = false; 
+                    addToLog(`Construction of ${TOOLS.build_tools.name} is complete! Morale increased.`, 'success');
+                    gameState.isBuildingTool = false;
+                }
+                updateOnboardingStatus();
+                updateDashboard(calculateMetrics());
+
+                gameState.selectedActions = [];
+                UIElements.actionsGrid.innerHTML = '';
+                const newClients = Math.floor(Math.random() * 3) + 2;
+                gameState.potentialNewClients = newClients;
+                addToLog(`Month ${gameState.month}: Select up to two actions.`);
+                
+                displayAllActions();
+
+                UIElements.endTurnContainer.innerHTML = `<button id="end-turn-button" class="bg-indigo-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-indigo-700 transition-colors w-full md:w-auto disabled:opacity-50 disabled:cursor-not-allowed" disabled>End Month (0/2 selected)</button>`;
+                document.getElementById('end-turn-button').addEventListener('click', endTurn);
+            }
+
+            function displayAllActions() {
+                createActionButton(`Accept ${gameState.potentialNewClients} Clients`, "Grow your client base", 'bg-green-500 hover:bg-green-600', 'accept_clients');
+                createActionButton("Focus on Quality", "Improves quality, reduces capacity", 'bg-blue-500 hover:bg-blue-600', 'focus_quality');
+                Object.values(HIRES).forEach(hire => {
+                    createActionButton(`Hire ${hire.name}`, `Cost: ${formatCurrency(hire.salary)}/mo`, 'bg-sky-500 hover:bg-sky-600', hire.id);
+                });
+                Object.values(TOOLS).forEach(tool => {
+                    let costText = '';
+                    if (tool.cost) costText = `${formatCurrency(tool.cost)}/mo`;
+                    else if (tool.costPerAccount) costText = `${formatCurrency(tool.costPerAccount)}/acc/mo`;
+                    else costText = `${formatCurrency(tool.initialCost)} once, then ${formatCurrency(tool.maintenanceCost)}/mo`;
+                    createActionButton(`Invest in: ${tool.name}`, costText, 'bg-purple-500 hover:bg-purple-600', tool.id, gameState.tools.includes(tool.id));
+                });
+            }
+
+            function endTurn() {
+                let actionSummary = [];
+                gameState.selectedActions.forEach(actionId => {
+                    switch (actionId) {
+                        case 'accept_clients':
+                            gameState.accounts += gameState.potentialNewClients;
+                            actionSummary.push(`signed ${gameState.potentialNewClients} clients`);
+                            break;
+                        case 'focus_quality':
+                            gameState.qualityInvestment++;
+                            actionSummary.push('focused on quality');
+                            break;
+                        case HIRES.junior.id:
+                            const j_hire = HIRES.junior;
+                            gameState.team.push({ ...j_hire, onboardMonthsLeft: j_hire.onboardMonths });
+                            actionSummary.push(`hired a ${j_hire.name}`);
+                            break;
+                        case HIRES.manager.id:
+                            const m_hire = HIRES.manager;
+                            gameState.team.push({ ...m_hire, onboardMonthsLeft: m_hire.onboardMonths });
+                            actionSummary.push(`hired an ${m_hire.name}`);
+                            break;
+                        case TOOLS.scheduler.id:
+                            gameState.tools.push(TOOLS.scheduler.id);
+                            gameState.teamMorale += CONFIG.morale.investmentBonus / 2;
+                            actionSummary.push(`bought the ${TOOLS.scheduler.name}`);
+                            break;
+                        case TOOLS.buy_tools.id:
+                            gameState.tools.push(TOOLS.buy_tools.id);
+                            gameState.processImprovements += TOOLS.buy_tools.processImprovements;
+                            gameState.teamMorale += CONFIG.morale.investmentBonus;
+                             actionSummary.push(`bought the ${TOOLS.buy_tools.name}`);
+                            break;
+                        case TOOLS.build_tools.id:
+                            gameState.isBuildingTool = true;
+                            gameState.baseOperationalCost += TOOLS.build_tools.initialCost;
+                             actionSummary.push(`started building ${TOOLS.build_tools.name}`);
+                            break;
+                    }
+                });
+
+                if (actionSummary.length > 0) {
+                     addToLog(`This month you ${actionSummary.join(' and ')}.`, 'success');
+                } else {
+                     addToLog('No major actions taken. The business continues as usual.', 'info');
                 }
 
-                updateOnboardingStatus();
                 const metrics = calculateMetrics();
                 handleClientChurn(metrics.quality);
                 updateMorale(metrics);
-                
                 updateDashboard(metrics);
-                
+
                 if (checkEndConditions()) return;
 
-                generateMonthlyEvent();
+                setTimeout(setupNewTurn, 1500);
             }
-
+            
             function updateOnboardingStatus() {
                 gameState.team.forEach(member => {
                     if (member.onboardMonthsLeft > 0) {
@@ -294,54 +374,42 @@
                 });
 
                 const workload = totalCapacity > 0 ? gameState.accounts / totalCapacity : 5;
-
                 let quality = 100;
-                
-                if (workload > 1.0) {
-                    quality -= (workload - 1.0) * 100;
-                }
-                
+                // UPDATED: Quality penalty halved
+                if (workload > 1.0) { quality -= ((workload - 1.0) * 100) / 2; }
                 quality += gameState.qualityInvestment * 20;
-
-                const moraleFactor = gameState.teamMorale / 100;
-                quality *= moraleFactor;
-                
+                quality *= (gameState.teamMorale / 100);
                 quality = Math.max(0, Math.min(100, quality));
 
                 const staffCosts = gameState.team.reduce((sum, m) => sum + m.salary, 0);
                 let toolCosts = 0;
                 gameState.tools.forEach(toolId => {
-                    if (toolId === 'scheduler') toolCosts += TOOLS.scheduler.costPerAccount * gameState.accounts;
-                    if (toolId === 'buy_tools') toolCosts += TOOLS.buy_tools.cost;
-                    if (toolId === 'build_tools') toolCosts += TOOLS.build_tools.maintenanceCost;
+                    if (toolId === TOOLS.scheduler.id) toolCosts += TOOLS.scheduler.costPerAccount * gameState.accounts;
+                    if (toolId === TOOLS.buy_tools.id) toolCosts += TOOLS.buy_tools.cost;
+                    if (toolId === TOOLS.build_tools.id) toolCosts += TOOLS.build_tools.maintenanceCost;
                 });
                 const monthlyCosts = gameState.baseOperationalCost + staffCosts + toolCosts;
-                
                 const revenue = gameState.accounts * CONFIG.revenuePerAccount;
                 const profit = revenue - monthlyCosts;
 
                 return { workload, quality, profit, revenue, monthlyCosts, totalCapacity, capacityPerPerson };
             }
-            
-            /**
-             * UPDATED: New morale logic based on workload.
-             */
+
             function updateMorale(metrics) {
+                // UPDATED: Morale penalty halved
                  if (metrics.workload > 1.2) {
-                    let moraleDrop = 20; // Flat 20% drop for exceeding 120%
-                    moraleDrop += (metrics.workload - 1.2) * 100; // Additional 1% drop for each % over 120
+                    let moraleDrop = 10; // Halved from 20
+                    moraleDrop += ((metrics.workload - 1.2) * 100) / 2; // Halved
                     gameState.teamMorale -= moraleDrop;
-                    addToLog(`The team is severely overworked! Morale is dropping sharply.`);
+                    addToLog(`The team is overworked! Morale is dropping.`);
                 } else if (metrics.workload < 0.9) {
                     gameState.teamMorale += CONFIG.moraleRecoveryRate;
                 }
                 
                 if (metrics.profit >= CONFIG.morale.highProfitThreshold) {
                     gameState.teamMorale += CONFIG.morale.profitBonus;
-                    addToLog(`Excellent profits are boosting morale!`, 'success');
                 } else if (metrics.profit < 0) {
                     gameState.teamMorale -= CONFIG.morale.lossPenalty;
-                    addToLog(`Financial losses are hurting morale.`, 'error');
                 }
 
                 gameState.teamMorale = Math.max(0, Math.min(100, gameState.teamMorale));
@@ -349,13 +417,9 @@
 
             function handleClientChurn(quality) {
                 let clientsToLose = 0;
-                if (quality < 50) {
-                    clientsToLose = 3;
-                } else if (quality < 60) {
-                    clientsToLose = 2;
-                } else if (quality < 70) {
-                    clientsToLose = 1;
-                }
+                if (quality < 50) { clientsToLose = 3; } 
+                else if (quality < 60) { clientsToLose = 2; } 
+                else if (quality < 70) { clientsToLose = 1; }
 
                 if (clientsToLose > 0 && gameState.accounts > 0) {
                     const actualClientsLost = Math.min(gameState.accounts, clientsToLose);
@@ -372,82 +436,45 @@
             
             function checkEndConditions() {
                 if (gameState.accounts >= CONFIG.targetAccounts) endGame(true);
-                else if (gameState.month >= CONFIG.maxMonths) endGame(false, "You ran out of time! The board is looking for more decisive leadership.");
-                else if (gameState.teamMorale <= 0) endGame(false, "Team morale hit zero! Everyone quit, and the vertical collapsed.");
-                else if (gameState.accounts <= 0) endGame(false, "You lost all your clients! The business vertical has been shut down.");
+                else if (gameState.month >= CONFIG.maxMonths) endGame(false, "You ran out of time!");
+                else if (gameState.teamMorale <= 0) endGame(false, "Team morale hit zero! Everyone quit.");
+                else if (gameState.accounts <= 0) endGame(false, "You lost all your clients!");
                 else return false;
                 return true;
             }
 
-            function generateMonthlyEvent() {
-                const newClients = Math.floor(Math.random() * 3) + 2;
-                const { capacityPerPerson } = calculateMetrics();
-                addToLog(`A new opportunity! You can sign ${newClients} new clients. Each writer can currently handle ${capacityPerPerson.toFixed(1)} accounts.`);
-                
-                UIElements.actionsGrid.innerHTML = '';
-                
-                createActionButton(`Accept ${newClients} Clients`, "The core of growth. Let's take them on.", 'bg-green-500 hover:bg-green-600', () => {
-                    gameState.accounts += newClients;
-                    addToLog(`You signed ${newClients} new accounts. Time to deliver!`, 'success');
-                    setTimeout(startMonth, 1000);
-                });
+            // --- UI & INTERACTION FUNCTIONS ---
 
-                createActionButton("Focus on Quality", "Boosts quality by 20%, reduces capacity by 1.", 'bg-blue-500 hover:bg-blue-600', () => {
-                    gameState.qualityInvestment++;
-                    const { capacityPerPerson } = calculateMetrics();
-                    addToLog(`New quality standards set! This improves output but reduces capacity to ${capacityPerPerson.toFixed(1)} accounts per person.`);
-                    setTimeout(startMonth, 1000);
-                });
-                
-                createActionButton("Make Strategic Investment", "Pull the levers of Capability or Process.", 'bg-indigo-500 hover:bg-indigo-600', showStrategicDecisions);
+            function handleActionSelection(actionId, buttonEl) {
+                const isSelected = buttonEl.classList.contains('selected');
+                if (isSelected) {
+                    buttonEl.classList.remove('selected');
+                    gameState.selectedActions = gameState.selectedActions.filter(id => id !== actionId);
+                } else {
+                    if (gameState.selectedActions.length < 2) {
+                        buttonEl.classList.add('selected');
+                        gameState.selectedActions.push(actionId);
+                    } else {
+                        addToLog("You can only select up to two actions per month.", "error");
+                    }
+                }
+                const count = gameState.selectedActions.length;
+                const endTurnButton = document.getElementById('end-turn-button');
+                endTurnButton.disabled = count === 0;
+                endTurnButton.textContent = `End Month (${count}/2 selected)`;
             }
 
-            function showStrategicDecisions() {
-                UIElements.actionsGrid.innerHTML = '';
-                addToLog("Choose an investment. This will consume your turn this month.");
-
-                Object.values(HIRES).forEach(hire => {
-                    createActionButton(`Hire ${hire.name}`, `Cost: ${formatCurrency(hire.salary)}/mo`, 'bg-sky-500 hover:bg-sky-600', () => {
-                        const newHire = {...hire, onboardMonthsLeft: hire.onboardMonths };
-                        delete newHire.onboardMonths;
-                        gameState.team.push(newHire);
-                        addToLog(`Hiring process started for a ${hire.name}. Onboarding will take ${hire.onboardMonths} month.`, 'success');
-                        setTimeout(startMonth, 1000);
-                    });
-                });
-
-                createActionButton(`Buy Content Scheduler`, `Cost: ${formatCurrency(TOOLS.scheduler.costPerAccount)}/account/mo`, 'bg-purple-500 hover:bg-purple-600', () => {
-                    gameState.tools.push(TOOLS.scheduler.id);
-                    gameState.teamMorale += CONFIG.morale.investmentBonus / 2;
-                    addToLog(`${TOOLS.scheduler.name} purchased. A small morale boost!`, 'success');
-                    setTimeout(startMonth, 1000);
-                }, gameState.tools.includes(TOOLS.scheduler.id));
-
-                createActionButton(`Buy Tool Suite`, `Cost: ${formatCurrency(TOOLS.buy_tools.cost)}/mo`, 'bg-purple-500 hover:bg-purple-600', () => {
-                    gameState.tools.push(TOOLS.buy_tools.id);
-                    gameState.processImprovements += TOOLS.buy_tools.processImprovements;
-                    gameState.teamMorale += CONFIG.morale.investmentBonus;
-                    const { capacityPerPerson } = calculateMetrics();
-                    addToLog(`${TOOLS.buy_tools.name} purchased. Capacity and morale increased!`, 'success');
-                    setTimeout(startMonth, 1000);
-                }, gameState.tools.includes(TOOLS.buy_tools.id));
-                
-                createActionButton(`Build In-house Tools`, `Cost: ${formatCurrency(TOOLS.build_tools.initialCost)} now, then ${formatCurrency(TOOLS.build_tools.maintenanceCost)}/mo`, 'bg-purple-700 hover:bg-purple-800', () => {
-                    gameState.isBuildingTool = true;
-                    gameState.baseOperationalCost += TOOLS.build_tools.initialCost;
-                    addToLog(`Began building ${TOOLS.build_tools.name}. It will be ready next month.`, 'success');
-                    setTimeout(startMonth, 1000);
-                }, gameState.tools.includes(TOOLS.build_tools.id) || gameState.isBuildingTool);
-                
-                createActionButton("Back to Main Actions", "Reconsider your options.", 'bg-slate-500 hover:bg-slate-600', generateMonthlyEvent);
+            function createActionButton(title, subtitle, colorClass, actionId, disabled = false) {
+                const buttonContainer = document.createElement('div');
+                buttonContainer.className = `action-button p-4 rounded-lg text-white text-left cursor-pointer ${colorClass} ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`;
+                buttonContainer.innerHTML = `<h3 class="font-bold text-md">${title}</h3><p class="text-sm opacity-90 mt-1">${subtitle}</p>`;
+                if (!disabled) {
+                    buttonContainer.addEventListener('click', () => handleActionSelection(actionId, buttonContainer));
+                }
+                UIElements.actionsGrid.appendChild(buttonContainer);
             }
 
-
-            // --- UI & HELPER FUNCTIONS ---
-            function formatCurrency(value) {
-                return value.toLocaleString('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 0 });
-            }
-
+            function formatCurrency(value) { return value.toLocaleString('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 0 }); }
             function updateDashboard(metrics) {
                 UIElements.month.textContent = `${gameState.month} / ${CONFIG.maxMonths}`;
                 UIElements.teamSize.textContent = gameState.team.length;
@@ -473,25 +500,10 @@
                 if (quality > 70) return 'Good'; if (quality > 50) return 'Average';
                 if (quality > 30) return 'Poor'; return 'Critical';
             }
-
             function getBarColor(value) {
                 if (value > 75) return 'bg-green-500'; if (value > 50) return 'bg-yellow-400';
                 if (value > 25) return 'bg-orange-500'; return 'bg-red-600';
             }
-            
-            function createActionButton(title, subtitle, colorClass, onClick, disabled = false) {
-                const buttonContainer = document.createElement('div');
-                buttonContainer.className = `action-button p-4 rounded-lg text-white text-left cursor-pointer ${colorClass} ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`;
-                buttonContainer.innerHTML = `<h3 class="font-bold text-md">${title}</h3><p class="text-sm opacity-90 mt-1">${subtitle}</p>`;
-                if (!disabled) {
-                    buttonContainer.addEventListener('click', () => {
-                        UIElements.actionsGrid.innerHTML = `<div class="text-center text-slate-500 col-span-3 py-4">Processing turn...</div>`;
-                        onClick();
-                    });
-                }
-                UIElements.actionsGrid.appendChild(buttonContainer);
-            }
-            
             function addToLog(message, type = 'info') {
                 UIElements.messageText.textContent = message;
                 const logEl = UIElements.messageText.parentElement;
@@ -503,14 +515,14 @@
             
             function endGame(isWin, message = '') {
                 gameState.isGameOver = true;
-                UIElements.modalBody.textContent = message;
-
                 if (isWin) {
                     UIElements.modalTitle.textContent = "Congratulations!";
+                    UIElements.modalBody.textContent = `You successfully scaled the vertical to ${gameState.accounts} accounts in ${gameState.month} months!`;
                     UIElements.modalTitle.className = 'text-3xl font-bold mb-4 text-green-600';
                     UIElements.moralDisplay.classList.remove('hidden');
                 } else {
                     UIElements.modalTitle.textContent = "Challenge Failed";
+                    UIElements.modalBody.textContent = message;
                     UIElements.modalTitle.className = 'text-3xl font-bold mb-4 text-red-600';
                     UIElements.moralDisplay.classList.add('hidden');
                 }
@@ -519,25 +531,11 @@
 
             // --- EVENT LISTENERS ---
             UIElements.restartButton.addEventListener('click', initGame);
-
-            // Modal handling
-            const openModal = (modal) => {
-                modal.classList.remove('hidden');
-                setTimeout(() => modal.style.opacity = 1, 10);
-            }
-            const closeModal = (modal) => {
-                modal.style.opacity = 0;
-                setTimeout(() => modal.classList.add('hidden'), 300);
-            }
-
+            const openModal = (modal) => { modal.classList.remove('hidden'); setTimeout(() => modal.style.opacity = 1, 10); }
+            const closeModal = (modal) => { modal.style.opacity = 0; setTimeout(() => modal.classList.add('hidden'), 300); }
             UIElements.rulesButton.addEventListener('click', () => openModal(UIElements.rulesModal));
             UIElements.closeRulesButton.addEventListener('click', () => closeModal(UIElements.rulesModal));
-            UIElements.rulesModal.addEventListener('click', (e) => {
-                if(e.target === UIElements.rulesModal) closeModal(UIElements.rulesModal);
-            });
-
-
-            // --- START THE GAME ---
+            UIElements.rulesModal.addEventListener('click', (e) => { if(e.target === UIElements.rulesModal) closeModal(UIElements.rulesModal); });
             initGame();
         });
     </script>
