@@ -126,8 +126,8 @@
                 <div>
                     <h3 class="font-bold text-lg text-indigo-600">Key Metrics</h3>
                     <ul class="list-disc list-inside space-y-2">
-                        <li><strong>Morale:</strong> Unhappy teams produce worse work. Your quality is capped by morale. Low morale also hurts from overwork, losses, and losing clients.</li>
-                        <li><strong>Quality:</strong> For every 1% your team is overworked, quality drops by 1%. Quality below 70% causes client loss (1-3 clients per month depending on severity).</li>
+                        <li><strong>Morale:</strong> Exceeding 120% workload causes a sharp morale drop. Morale also falls from losses and losing clients, but rises with low workload and investments.</li>
+                        <li><strong>Quality:</strong> For every 1% your team is overworked, quality drops by 1%. Unhappy teams also produce worse work. Quality below 70% causes client loss.</li>
                     </ul>
                 </div>
                 <div>
@@ -192,9 +192,7 @@
                 maxMonths: 18,
                 targetAccounts: 25,
                 revenuePerAccount: 30000,
-                baseClientLossChance: 0.05,
                 moraleRecoveryRate: 5,
-                moraleDropRate: 15,
                 baseCapacityPerPerson: 5,
                 processImprovementBonus: 3,
                 morale: {
@@ -325,10 +323,15 @@
                 return { workload, quality, profit, revenue, monthlyCosts, totalCapacity, capacityPerPerson };
             }
             
+            /**
+             * UPDATED: New morale logic based on workload.
+             */
             function updateMorale(metrics) {
                  if (metrics.workload > 1.2) {
-                    gameState.teamMorale -= CONFIG.moraleDropRate * (metrics.workload - 1.1);
-                    addToLog(`The team is overworked! Morale is dropping.`);
+                    let moraleDrop = 20; // Flat 20% drop for exceeding 120%
+                    moraleDrop += (metrics.workload - 1.2) * 100; // Additional 1% drop for each % over 120
+                    gameState.teamMorale -= moraleDrop;
+                    addToLog(`The team is severely overworked! Morale is dropping sharply.`);
                 } else if (metrics.workload < 0.9) {
                     gameState.teamMorale += CONFIG.moraleRecoveryRate;
                 }
@@ -344,9 +347,6 @@
                 gameState.teamMorale = Math.max(0, Math.min(100, gameState.teamMorale));
             }
 
-            /**
-             * UPDATED: Tiered, deterministic client churn based on quality.
-             */
             function handleClientChurn(quality) {
                 let clientsToLose = 0;
                 if (quality < 50) {
@@ -363,7 +363,6 @@
                     const oldClientsLost = gameState.clientsLost;
                     gameState.clientsLost += actualClientsLost;
                     
-                    // Only apply morale penalty if new clients were lost this month
                     if (gameState.clientsLost > oldClientsLost) {
                          gameState.teamMorale -= CONFIG.morale.clientLossPenalty * actualClientsLost;
                          addToLog(`Critical quality failure! You lost ${actualClientsLost} client(s) this month.`, 'error');
